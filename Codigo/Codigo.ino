@@ -62,9 +62,9 @@ void loop(){
             Serial.print(" ");
             Serial.print(5);
             Serial.print(" ");
-            Serial.print((5*dataVector[0][i])/1023);
+            Serial.print(float((5*dataVector[0][i])/1023));
             Serial.print(" ");
-            Serial.print((5*dataVector[1][i])/1023);
+            Serial.print(float((5*dataVector[1][i])/1023));
             Serial.println(" ");
             Serial.flush();
         }
