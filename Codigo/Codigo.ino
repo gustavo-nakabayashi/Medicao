@@ -106,7 +106,7 @@ int sample, CH;
         }
     } 
 }
-
+//sei la
 ISR(TIMER0_COMPA_vect){
  // Serial.print(2);
 }
