@@ -4,11 +4,11 @@
 
 void setup() { 
     //Configure the ADC pins as inputs 
-    Serial.begin(9600);
-    pinMode(A0, INPUT); 
-    pinMode(A1, INPUT); 
-    pinMode(A2, INPUT); 
-    pinMode(A3, INPUT); 
+  Serial.begin(115200);
+  pinMode(A0, INPUT); 
+  pinMode(A1, INPUT); 
+  pinMode(A2, INPUT); 
+  pinMode(A3, INPUT); 
     //Configure the ADC mux
     ADMUX = 0x00; //MUX[3:0]=0000 -> select analog channel 0, 
                   //ADLAR=0 -> AD samples are right adjusted
@@ -42,114 +42,136 @@ void setup() {
 // --------------- 
 // Global variables
 
-const int N = 2; //Number of channels
-const int tam = 100;  //Size of the data buffers 
-
+const int tamVec = 100;  //Tamanho do vetor de dados 
+int energia=0;
+int luz;
+int temperatura;  
+bool calcEnergia = false;
 bool procStatus = false; //Flag to start data processing  
-int dataVector[N][tam]; //Data vectors for each channel
+int dataVector[2][tamVec]; //Data vectors for each channel
 int counter = 0; //Controls the number of samples 
 
 //Loop to process the data 
 void loop(){
-    int i; 
-    char cmd; 
+  int i; 
+  char cmd; 
 
     //Verify if it is time to process data 
-    if (procStatus == true){ 
-      noInterrupts(); 
-        output_data();
-        
-        procStatus = false; 
-        interrupts(); 
-    }
+  if (procStatus == true){ 
+    output_data();
+    energia = 0;
+    noInterrupts(); 
+    procStatus = false; 
+    interrupts(); 
+  }
+  if(calcEnergia == true){
+      energia += dataVector[0][counter]*dataVector[1][counter];
+      calcEnergia = false;
+  }
 }
 
 void output_data() {
-    char cmd = 'X';
-    while(cmd != 'A') { // A funcao so para quando cmd receber o caracter A
-        if(Serial.available() > 0) cmd = Serial.read();
-        if(cmd == 'A'){
-            for(int i = 1; i< BUFF_SIZE; i++){
-                Serial.print(outBuff[0][i]);
-                Serial.print(" ");
-                Serial.print(outBuff[1][i]);
-                Serial.print(" ");
-                Serial.print(lightData[LIGHT_BUFF-1]);
-                Serial.print(" ");
-                Serial.print(energyDataOut);
-                Serial.println(" ");
-                Serial.flush();
-            }
+  char cmd = 'X';
+  while(cmd != 'A') { // A funcao so para quando cmd receber o caracter A
+    if(Serial.available() > 0) cmd = Serial.read();
+    if(cmd == 'A'){
+      Serial.print(luz);//luz
+      Serial.print(" ");
+      Serial.print(temperatura);//temperatura
+      Serial.print(" ");
+      Serial.print(int(energia));//energia
+      Serial.print(" ");
+      for(int i = 1; i< tamVec; i++){
+
+        if((i-5)<5){
+         
         }
+
+        Serial.print(outBuff[0][i]);//Corrente
+        Serial.print(" ");
+        Serial.print(outBuff[1][i]);//Tensao
+        Serial.print(" ");
+        
+        Serial.println(" ");
+        Serial.flush();
+      }
     }
+  }
 }
 
 // --------------- 
 //ADC interrupt service routine 
 
 ISR(ADC_vect){
-int sample, CH; 
-//Serial.print(3);
-//Read the latest sample 
-    sample = ADCH; //Read the lower byte 
-    sample += ADCL<<8; //Read the upper byte 
-    //Store data from a specific channel.Halt acquisition 
-    //after 'tam' samples and start processing. 
-    //Serial.print(sample);
-    
-    if (procStatus == false){
-     // Serial.print(procStatus);
-      // Serial.print(ADMUX,HEX);
-        CH = ADMUX & 0x0F; //AD channel 
+  int sample, CH; 
+  //Serial.print(3);
+  //Read the latest sample 
+  sample = ADCH; //Read the lower byte 
+  sample += ADCL<<8; //Read the upper byte 
+  //Store data from a specific channel.Halt acquisition 
+  //after 'tam' samples and start processing. 
+  //Serial.print(sample);
+
+  if (procStatus == false){
+    // Serial.print(procStatus);
+    // Serial.print(ADMUX,HEX);
+    CH = ADMUX & 0x0F; //AD channel 
+
+    switch (var){
+
+      case 1://Corrente
+        ADMUX = 0X41;//Proxima leitura de corrente
         dataVector[CH][counter] = sample; //Store the data 
-        switch (var) {
-    
-        case 1:
-          ADMUX = 0X41;//Proxima leitura de corrente
-          var = 2;
-          break;
-          
-        case 2:
-          ADMUX = 0X42;//Proxima leitura de temperatura
-          var = 3;
-          break;
-          
-        case 3:
-          ADMUX = 0X40;//Proxima leitura de tensao
-          var = 4;
-          break;
-          
-        case 4:
-          ADMUX = 0X41;//Proxima leitura de corrente
-          var = 5;
-          break;
-          
-        case 5:
-          ADMUX = 0X43;//Proxima leitura de luminancia
-          var = 6;
-          break;
-          
-        case 6:
-          ADMUX = 0X40;//Proxima leitura de tensao
-          var = 1;
-          counter++;      //update the number of samples 
-          break;   
-          
-        default:
-          var = 1;//Iniciar a variavel para 1 em caso de bugs
-          break;
-       }
+        var = 2;
+        break;
 
-        //Verify if it is time to process the data 
-        if (counter == tam){ 
-            counter = 0; 
-            procStatus = true; //Set the flag to start processing 
+      case 2://Tensao
+        ADMUX = 0X42;//Proxima leitura de temperatura
+        dataVector[CH][counter] = sample; //Store the data 
+        var = 3;
+        calcEnergia = true;
+        break;
+
+      case 3://Luz
+        ADMUX = 0X40;//Proxima leitura de tensao
+        var = 4;
+        counter++;
+        if ((tamVec-counter)<=1){
+          luz = sample;
         }
-    } 
+        break;
+
+      case 4://Corrente
+        ADMUX = 0X41;//Proxima leitura de corrente
+        dataVector[CH][counter] = sample; //Store the data 
+        var = 5;
+        break;
+
+      case 5://Tensao
+        ADMUX = 0X43;//Proxima leitura de luminancia
+        dataVector[CH][counter] = sample; //Store the data 
+        var = 6;
+        calcEnergia = true;
+        break;
+
+      case 6://Temperatura
+        ADMUX = 0X40;//Proxima leitura de tensao
+        var = 1;
+        counter++;      //update the number of samples 
+        if ((tamVec-counter)<=1){
+          temperatura = sample;
+        }
+        break;   
+
+      default:
+        var = 1;//Iniciar a variavel para 1 em caso de bugs
+        break;
+    }
+
+    //Verify if it is time to process the data 
+    if (counter == tamVec){ 
+    counter = 0; 
+    procStatus = true; //Set the flag to start processing 
+    }
+  } 
 }
-
-ISR(TIMER0_COMPA_vect){
- // Serial.print(2);
-}
-
-
