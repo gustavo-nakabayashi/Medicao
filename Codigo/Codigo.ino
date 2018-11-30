@@ -7,6 +7,8 @@ void setup() {
     Serial.begin(9600);
     pinMode(A0, INPUT); 
     pinMode(A1, INPUT); 
+    pinMode(A2, INPUT); 
+    pinMode(A3, INPUT); 
     //Configure the ADC mux
     ADMUX = 0x00; //MUX[3:0]=0000 -> select analog channel 0, 
                   //ADLAR=0 -> AD samples are right adjusted
@@ -55,22 +57,30 @@ void loop(){
     //Verify if it is time to process data 
     if (procStatus == true){ 
       noInterrupts(); 
-        for(int i = 1; i< tam; i++){
-            Serial.print(3.3);
-            Serial.print(" ");
-            Serial.print(0);
-            Serial.print(" ");
-            Serial.print(5);
-            Serial.print(" ");
-            Serial.print(float((5*dataVector[0][i])/1023));
-            Serial.print(" ");
-            Serial.print(float((5*dataVector[1][i])/1023));
-            Serial.println(" ");
-            Serial.flush();
-        }
+        output_data();
         
         procStatus = false; 
         interrupts(); 
+    }
+}
+
+void output_data() {
+    char cmd = 'X';
+    while(cmd != 'A') { // A funcao so para quando cmd receber o caracter A
+        if(Serial.available() > 0) cmd = Serial.read();
+        if(cmd == 'A'){
+            for(int i = 1; i< BUFF_SIZE; i++){
+                Serial.print(outBuff[0][i]);
+                Serial.print(" ");
+                Serial.print(outBuff[1][i]);
+                Serial.print(" ");
+                Serial.print(lightData[LIGHT_BUFF-1]);
+                Serial.print(" ");
+                Serial.print(energyDataOut);
+                Serial.println(" ");
+                Serial.flush();
+            }
+        }
     }
 }
 
@@ -92,13 +102,44 @@ int sample, CH;
       // Serial.print(ADMUX,HEX);
         CH = ADMUX & 0x0F; //AD channel 
         dataVector[CH][counter] = sample; //Store the data 
-        if (++CH < N){ //Verify if all channels were acquired 
-            ADMUX += 1; //If not, go to the next channel 
-        } 
-        else{ 
-            ADMUX &= 0xF0; //If so, turn to channel 0 and 
-            counter++;      //update the number of samples 
-        } 
+        switch (var) {
+    
+        case 1:
+          ADMUX = 0X41;//Proxima leitura de corrente
+          var = 2;
+          break;
+          
+        case 2:
+          ADMUX = 0X42;//Proxima leitura de temperatura
+          var = 3;
+          break;
+          
+        case 3:
+          ADMUX = 0X40;//Proxima leitura de tensao
+          var = 4;
+          break;
+          
+        case 4:
+          ADMUX = 0X41;//Proxima leitura de corrente
+          var = 5;
+          break;
+          
+        case 5:
+          ADMUX = 0X43;//Proxima leitura de luminancia
+          var = 6;
+          break;
+          
+        case 6:
+          ADMUX = 0X40;//Proxima leitura de tensao
+          var = 1;
+          counter++;      //update the number of samples 
+          break;   
+          
+        default:
+          var = 1;//Iniciar a variavel para 1 em caso de bugs
+          break;
+       }
+
         //Verify if it is time to process the data 
         if (counter == tam){ 
             counter = 0; 
@@ -106,7 +147,7 @@ int sample, CH;
         }
     } 
 }
-//sei la
+
 ISR(TIMER0_COMPA_vect){
  // Serial.print(2);
 }
