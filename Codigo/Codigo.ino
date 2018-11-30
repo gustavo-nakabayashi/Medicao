@@ -50,7 +50,7 @@ bool calcEnergia = false;
 bool procStatus = false; //Flag to start data processing  
 int dataVector[2][tamVec]; //Data vectors for each channel
 int counter = 0; //Controls the number of samples 
-
+int var = 1;
 //Loop to process the data 
 void loop(){
   int i; 
